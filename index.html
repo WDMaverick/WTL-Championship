@@ -688,7 +688,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     <div class="band-head">
       <div class="eyebrow">Section D</div>
       <h2>Roster</h2>
-      <p>Teams and players for each division. Rosters are read live from each division's Google Sheet, so they update as soon as the sheet does.</p>
+      <p>Teams and players for each division, updated as teams are accepted.</p>
     </div>
     <div class="seg-row" id="rosterTabs" aria-label="Division"></div>
     <p class="hint" id="rosterMeta" aria-live="polite"></p>
@@ -1241,10 +1241,9 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     const key = rosterKey, src = ROSTER_SHEETS[key], L = LEAGUES[key];
     const box = $("rosterBox"), meta = $("rosterMeta");
     if (!src) { meta.textContent = ""; box.innerHTML = `<div class="empty">${esc(L.name)} rosters will be posted here soon.</div>`; return; }
-    const sheetUrl = `https://docs.google.com/spreadsheets/d/${src.id}/edit#gid=${src.gid}`;
     const show = teams => {
       if (key !== rosterKey) return;
-      meta.innerHTML = `${teams.length} team${teams.length === 1 ? "" : "s"} · <a href="${sheetUrl}" target="_blank" rel="noopener">View the Google Sheet</a>`;
+      meta.textContent = `${teams.length} team${teams.length === 1 ? "" : "s"}`;
       box.innerHTML = teams.length ? `<div class="roster-grid">${teams.map(teamCard).join("")}</div>` : `<div class="empty">No teams in the ${esc(L.name)} sheet yet.</div>`;
       box.querySelectorAll("img.rteam-logo").forEach(img => img.addEventListener("error", () => {
         const d = document.createElement("div"); d.className = "rteam-mono"; d.setAttribute("aria-hidden", "true"); d.textContent = img.dataset.initials; img.replaceWith(d);
@@ -1260,7 +1259,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     } catch {
       if (key !== rosterKey) return;
       meta.textContent = "";
-      box.innerHTML = `<div class="empty">Couldn’t load the ${esc(L.name)} rosters right now. <a href="${sheetUrl}" target="_blank" rel="noopener">Open the Google Sheet</a> instead.</div>`;
+      box.innerHTML = `<div class="empty">Couldn’t load the ${esc(L.name)} rosters right now. Please try again later.</div>`;
     }
   }
   $("rosterTabs").addEventListener("click", e => {
