@@ -55,5 +55,5 @@ Sources:
    `google-chrome --headless=new --no-sandbox --hide-scrollbars --virtual-time-budget=4000 --window-size=1280,1400 --screenshot=<scratchpad>/shot.png "file://$PWD/index.html"`
    (load without a `#hash`; the hash jump makes headless screenshots misleading).
 2. Commit `src/page.html`, `index.html`, `sources/rulebook.txt` and any script changes, then push to `main`. Never `git add temp/`. End the commit message with the Co-Authored-By line from the current attribution reminder.
-3. Wait for Pages: `gh api repos/Muhwu/wtl-championship-rulebook/pages/builds/latest --jq .status` should be `built`; spot-check the live page with `curl`.
+3. Wait for Pages: `gh api repos/WDMaverick/WTL-Championship/pages/builds/latest --jq .status` should be `built`; spot-check the live page with `curl`.
 4. Report to the user: what changed in the doc and/or calculator, what you changed on the page (including calculator checks), and a list of inconsistencies or typos in the new source that the doc owner may want to fix.
