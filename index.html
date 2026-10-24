@@ -525,7 +525,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
         <h3>Variables</h3>
         <dl class="vars">
           <dt>x</dt><dd>Current rank, at the time the application is submitted</dd>
-          <dt>y</dt><dd>Peak rank in 2026 (used with 200+ games in 2026)</dd>
+          <dt>y</dt><dd>Peak rank in 2026 (used with at least 200 games in 2026)</dd>
           <dt>y′</dt><dd>Peak rank across 2025 and 2026 (used with fewer than 200 games)</dd>
           <dt>z</dt><dd>Ranked solo/duo games played in 2026</dd>
           <dt>a</dt><dd>OTP status: share of your games on your main champion</dd>
@@ -535,7 +535,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
         <p>Only ranked solo/duo games count. Ranks use the apex-tier scale with Master 0 LP as the zero point, so Diamond 4 0 LP is −400 LP, Emerald 4 0 LP is −800 LP, and so on. Apex players who decayed recently use their rank from before the decay.</p>
         <p>Your current rank is the base. It is pulled toward your peak by a weight of <span class="mono">150/z + ¼</span>, so the more games you play, the more the result leans toward your current rank. At 600 games the result sits halfway between peak and current. The peak never fully disappears: the weight never drops below a quarter.</p>
         <p>The penalty terms account for one-trick players and players off their main role. <span class="mono">q</span> scales from 0 at 50% on one champion to 1 at 100%; below 50% there is no OTP adjustment. The <span class="mono">qb</span> term in Division 1 covers players who are both one-tricks and off-role.</p>
-        <p>With fewer than 200 games it is hard to estimate your level, so your SLOPE equals your highest peak of the last two seasons.</p>
+        <p>With fewer than 200 games it is hard to estimate your level, so your SLOPE starts from your highest peak of the last two seasons instead of your current rank. The one-trick and role adjustments still apply.</p>
         <div class="doc-links">
           <a class="btn" href="https://drive.google.com/file/d/1ss4DqESf0VN2vPcBvnPUsJRWD0nqzJhL/view" target="_blank" rel="noopener">Read SLOPE.pdf</a>
           <a class="btn ghost" href="https://colab.research.google.com/drive/115SeCJfrsuFeppZrprDW_tJcKFyIaOHo?usp=sharing" target="_blank" rel="noopener">Open Colab notebook</a>
@@ -547,7 +547,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
         <div class="eyebrow">The formula · Division 1</div>
         <div class="formula">f = <var>x</var> + (<var>y</var> − <var>x</var>)(<span class="frac"><span>150</span><span><var>z</var></span></span> + <span class="frac"><span>1</span><span>4</span></span>) − 300<var>q</var> − 400<var>b</var> − 300<var>qb</var></div>
         <div class="formula">q(<var>a</var>) = 2<var>a</var><sup>4(k−1)<var>a</var> + 3 − 2k</sup> − 1, &nbsp; k = ln 0.7 / ln 0.75</div>
-        <div class="formula">if <var>a</var> &lt; 0.50 → <var>q</var> = 0 &nbsp;·&nbsp; if <var>z</var> &lt; 200 → f = <var>y′</var></div>
+        <div class="formula">if <var>a</var> &lt; 0.50 → <var>q</var> = 0 &nbsp;·&nbsp; if <var>z</var> &lt; 200 → f = <var>y′</var> − 300<var>q</var> − 400<var>b</var> − 300<var>qb</var></div>
         <div class="eyebrow">Penalty terms by formula</div>
         <div class="tablebox">
           <table class="data pen-table">
@@ -622,7 +622,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
             <input type="radio" name="role" id="roleSec" value="secondary"><label for="roleSec">Secondary role</label>
             <input type="radio" name="role" id="roleOff" value="off"><label for="roleOff">Off-role</label>
           </div>
-          <p class="hint">Secondary: not your main role, but you have a decent number of games on it, queue it as secondary, or your main champions flex into it.</p>
+          <p class="hint">Main role: the role with the most games, or the role you currently main in solo queue (minimum 100 games). Secondary: your second most played role, or any role with at least 10% of your games. Any other role is off-role.</p>
         </fieldset>
 
         <fieldset>
@@ -705,11 +705,10 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   const ROLE_B = { on: 0, secondary: 0.5, off: 1 };
   const PEN = { 1: [300, 400, 300], 2: [150, 200, 0], 3: [100, 100, 0] };
   function slope(fd, x, y, z, a, role) {
-    if (z < 200) return { value: y, peakOnly: true };
-    const q = qOfA(a), b = ROLE_B[role], w = 150 / z + 0.25;
-    const base = x + (y - x) * w;
+    const q = qOfA(a), b = ROLE_B[role], peakOnly = z < 200, w = peakOnly ? 0 : 150 / z + 0.25;
+    const base = peakOnly ? y : x + (y - x) * w;
     const [pq, pb, pqb] = PEN[fd];
-    return { value: base - pq * q - pb * b - pqb * q * b, q, b, w, base, penQ: pq * q, penB: pb * b, penQB: pqb * q * b };
+    return { value: base - pq * q - pb * b - pqb * q * b, peakOnly, q, b, w, base, penQ: pq * q, penB: pb * b, penQB: pqb * q * b };
   }
 
   // ---------- Divisions & point tables (rulebook 1.2 / 2.3.1) ----------
@@ -862,11 +861,10 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   }
   function breakdownRows(r, L) {
     const rows = [["Current rank", lpToRank(r.x)], ["Peak rank used", lpToRank(r.y)]];
-    if (!r.peakOnly) {
-      rows.push(["Peak weight (150/z + ¼)", (r.w * 100).toFixed(1) + "%"], ["Blend of current and peak", signed(r.base).replace("+", "")],
-        [`One-trick penalty (q = ${r.q.toFixed(3)})`, signed(-r.penQ), true], [`Role penalty (b = ${r.b})`, signed(-r.penB), true]);
-      if (L.formula === 1) rows.push(["One-trick and role combined", signed(-r.penQB), true]);
-    }
+    if (!r.peakOnly)
+      rows.push(["Peak weight (150/z + ¼)", (r.w * 100).toFixed(1) + "%"], ["Blend of current and peak", signed(r.base).replace("+", "")]);
+    rows.push([`One-trick penalty (q = ${r.q.toFixed(3)})`, signed(-r.penQ), true], [`Role penalty (b = ${r.b})`, signed(-r.penB), true]);
+    if (L.formula === 1) rows.push(["One-trick and role combined", signed(-r.penQB), true]);
     rows.push(["SLOPE", lpToRank(r.value)], [`Points (Division ${L.formula} table)`, `${r.pt.pts} pts`]);
     return rows;
   }
@@ -879,7 +877,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     const L = LEAGUES[p.league];
     const few = p.games < 200;
     $("peakLegend").textContent = few ? "Peak rank since January 2025" : "Peak rank in 2026";
-    $("peakHint").textContent = few ? "Under 200 games in 2026: your SLOPE equals this peak." : "200+ games in 2026: use your 2026 peak.";
+    $("peakHint").textContent = few ? "Under 200 games in 2026: your SLOPE starts from this peak." : "200+ games in 2026: use your 2026 peak.";
     $("formulaHint").textContent = `Uses the Division ${L.formula} SLOPE formula and point table. TPE limit ${L.tpe[0]}–${L.tpe[1]} points.`;
     const err = validate(p);
     $("calcErr").textContent = err;
@@ -901,7 +899,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
         const strong = k === "SLOPE";
         return `<dt>${strong ? "<strong>SLOPE</strong>" : esc(k)}</dt><dd class="${pen && v.startsWith("−") ? "neg" : ""}">${strong ? `<strong>${esc(v)}</strong>` : esc(v)}</dd>`;
       }).join("")}</dl>
-      ${few ? `<p class="note">With fewer than 200 games, SLOPE equals your peak rank. Champion and role adjustments do not apply.</p>` : ""}`;
+      ${few ? `<p class="note">With fewer than 200 games, SLOPE starts from your peak rank instead of your current rank. One-trick and role adjustments still apply.</p>` : ""}`;
     last = { r, m, rows, L, p };
     store.set("wtl-form", p);
     renderTeam();

@@ -24,7 +24,13 @@ for (const [k, want] of Object.entries(REF)) {
   const got = T.slope(+fd, x, y, 412, 0.62, role).value;
   check(Math.abs(got - want) < 1e-3, `slope ${k}: got ${got.toFixed(4)} want ${want}`);
 }
-check(T.slope(1, x, y, 150, 0.62, "off").value === y, "under 200 games should return the peak");
+// Under 200 games: peak (y') replaces the current/peak blend, penalties still apply (SLOPE.pdf eq. 14, 22, 30)
+for (const [k, want] of Object.entries(REF)) {
+  const [fd, role] = k.split(" ");
+  const blend = T.slope(+fd, x, y, 412, 0.62, role).base, expect = y + (want - blend);
+  const got = T.slope(+fd, x, y, 150, 0.62, role).value;
+  check(Math.abs(got - expect) < 1e-3, `under-200 ${k}: got ${got.toFixed(4)} want ${expect.toFixed(4)}`);
+}
 
 // Creator's point logic
 const CREATOR_TABLES = { 1: { bottom: -400, cap: 16 }, 2: { bottom: -800, cap: 11 }, 3: { bottom: -2000, cap: 12 } };
@@ -38,5 +44,5 @@ for (const [k, L] of Object.entries(T.LEAGUES))
   for (let v = -2600; v <= 2000; v += 0.7, n++)
     check(T.pointsFor(k, v).pts === creatorPoints(L.formula, v), `points ${k} @ ${v.toFixed(1)}`);
 
-console.log(fail ? `${fail} check(s) failed` : `All checks passed (${Object.keys(REF).length + 1} formula, ${n} point samples)`);
+console.log(fail ? `${fail} check(s) failed` : `All checks passed (${Object.keys(REF).length * 2} formula, ${n} point samples)`);
 process.exit(fail ? 1 : 0);
