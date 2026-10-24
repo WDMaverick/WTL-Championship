@@ -175,7 +175,6 @@ input:hover, select:hover { border-color: #2c4a66; }
 .seg-group label { font: 600 14px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; color: var(--muted); background: var(--bg); }
 .seg-group input:checked + label { background: var(--blue); border-color: var(--blue); color: #fff; }
 .seg-group input:focus-visible + label { outline: 2px solid var(--magenta); outline-offset: 2px; }
-.otp { display: grid; grid-template-columns: 1fr 96px; gap: 12px; align-items: center; }
 input[type="range"] { width: 100%; accent-color: var(--blue); }
 .check { display: flex; gap: 8px; align-items: center; font-size: 15px; color: var(--soft); }
 .check input { width: 17px; height: 17px; accent-color: var(--blue); }
@@ -528,7 +527,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
           <dt>y</dt><dd>Peak rank in 2026 (used with at least 200 games in 2026)</dd>
           <dt>y′</dt><dd>Peak rank across 2025 and 2026 (used with fewer than 200 games)</dd>
           <dt>z</dt><dd>Ranked solo/duo games played in 2026</dd>
-          <dt>a</dt><dd>OTP status: share of your games on your main champion</dd>
+          <dt>a</dt><dd>OTP status: games played on your most played champion in 2026 (u = a / z is your share of games on it)</dd>
           <dt>b</dt><dd>Role status: 0 on-role, ½ secondary role, 1 off-role</dd>
         </dl>
         <h3>How it reads</h3>
@@ -608,11 +607,8 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
 
         <fieldset>
           <legend>Games on main champion</legend>
-          <div class="otp">
-            <input type="range" id="otpRange" min="0" max="100" step="1" aria-label="Percent of games on main champion">
-            <label class="lab" style="grid-template-columns:1fr auto;align-items:center"><input type="number" id="otp" min="0" max="100" step="1" aria-label="Percent on main champion"><span>%</span></label>
-          </div>
-          <p class="hint">Below 50% there is no one-trick penalty.</p>
+          <label class="lab">Ranked solo/duo games on your most played champion in 2026<input type="number" id="champ" min="0" step="1" inputmode="numeric"></label>
+          <p class="hint" id="champHint">Below 50% of your games there is no one-trick penalty.</p>
         </fieldset>
 
         <fieldset>
@@ -785,10 +781,11 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   const tierOpts = TIER_OPTS.map(t => `<option value="${t}">${cap(t)}</option>`).join("");
   $("curTier").innerHTML = tierOpts; $("peakTier").innerHTML = tierOpts;
 
-  const DEFAULTS = { league: "na1", curTier: "diamond", curDiv: "2", curLp: 45, games: 412, peakTier: "master", peakDiv: "4", peakLp: 180, otp: 62, role: "on", pname: "", pos: "Mid", academy: true };
-  const saved = Object.assign({}, DEFAULTS, store.get("wtl-form") || {});
-  for (const k of ["league", "curTier", "curDiv", "curLp", "games", "peakTier", "peakDiv", "peakLp", "otp", "pname", "pos"]) $(k).value = saved[k];
-  $("otpRange").value = saved.otp;
+  const DEFAULTS = { league: "na1", curTier: "diamond", curDiv: "2", curLp: 45, games: 412, peakTier: "master", peakDiv: "4", peakLp: 180, champ: 255, role: "on", pname: "", pos: "Mid", academy: true };
+  // Older saves stored a percentage (otp); convert it to a game count
+  const migrate = o => { if (o && o.champ == null && o.otp != null) o.champ = Math.round(o.otp / 100 * (o.games || 0)); if (o) delete o.otp; return o; };
+  const saved = Object.assign({}, DEFAULTS, migrate(store.get("wtl-form")) || {});
+  for (const k of ["league", "curTier", "curDiv", "curLp", "games", "peakTier", "peakDiv", "peakLp", "champ", "pname", "pos"]) $(k).value = saved[k];
   $("academy").checked = !!saved.academy;
   ({ on: $("roleOn"), secondary: $("roleSec"), off: $("roleOff") })[saved.role].checked = true;
 
@@ -799,7 +796,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
       curTier: $("curTier").value, curDiv: +$("curDiv").value, curLp: num("curLp"),
       games: Math.floor(num("games")),
       peakTier: $("peakTier").value, peakDiv: +$("peakDiv").value, peakLp: num("peakLp"),
-      otp: num("otp"),
+      champ: Math.floor(num("champ")),
       role: document.querySelector('input[name="role"]:checked').value,
       pname: $("pname").value.trim(), pos: $("pos").value, academy: $("academy").checked,
     };
@@ -808,15 +805,17 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     const lpOk = (tier, lp) => Number.isFinite(lp) && lp >= 0 && (APEX.includes(tier) || lp <= 99);
     if (!lpOk(p.curTier, p.curLp) || !lpOk(p.peakTier, p.peakLp)) return "Check your LP: it must be 0–99 below Master, and 0 or more in Master and above.";
     if (!Number.isFinite(p.games) || p.games < 0) return "Enter the number of ranked solo/duo games you played in 2026.";
-    if (!Number.isFinite(p.otp) || p.otp < 0 || p.otp > 100) return "Enter a main-champion percentage between 0 and 100.";
+    if (!Number.isFinite(p.champ) || p.champ < 0) return "Enter the number of games on your most played champion.";
+    if (p.champ > p.games) return "Games on your most played champion can't be more than your total games.";
     return "";
   }
 
+  const pctOf = p => p.games > 0 ? Math.round(p.champ / p.games * 100) : 0;
   function evaluate(p, leagueKey) {
     const L = LEAGUES[leagueKey];
     const x = rankToLp(p.curTier, p.curDiv, p.curLp);
     const y = rankToLp(p.peakTier, p.peakDiv, p.peakLp);
-    const s = slope(L.formula, x, y, p.games, p.otp / 100, p.role);
+    const s = slope(L.formula, x, y, p.games, p.games > 0 ? p.champ / p.games : 0, p.role);
     return { x, y, ...s, pt: pointsFor(leagueKey, s.value) };
   }
 
@@ -877,7 +876,10 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     const L = LEAGUES[p.league];
     const few = p.games < 200;
     $("peakLegend").textContent = few ? "Peak rank since January 2025" : "Peak rank in 2026";
-    $("peakHint").textContent = few ? "Under 200 games in 2026: your SLOPE starts from this peak." : "200+ games in 2026: use your 2026 peak.";
+    $("champHint").textContent = Number.isFinite(p.champ) && p.games > 0 && p.champ <= p.games
+      ? `That's ${pctOf(p)}% of your games.${p.champ / p.games < 0.5 ? " Below 50%: no one-trick penalty." : ""}`
+      : "Below 50% of your games there is no one-trick penalty.";
+    $("peakHint").textContent = few ? "Under 200 games in 2026: your SLOPE starts from this peak." : "At least 200 games in 2026: use your 2026 peak.";
     $("formulaHint").textContent = `Uses the Division ${L.formula} SLOPE formula and point table. TPE limit ${L.tpe[0]}–${L.tpe[1]} points.`;
     const err = validate(p);
     $("calcErr").textContent = err;
@@ -908,14 +910,15 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   // ---------- Team ----------
   let lastTeam = null;
   const EXAMPLE = [
-    { pname: "Example Top", pos: "Top", slot: "starter", academy: true, curTier: "diamond", curDiv: 1, curLp: 20, games: 530, peakTier: "master", peakDiv: 4, peakLp: 210, otp: 40, role: "on" },
-    { pname: "Example Jungle", pos: "Jungle", slot: "starter", academy: true, curTier: "master", curDiv: 4, curLp: 160, games: 380, peakTier: "master", peakDiv: 4, peakLp: 340, otp: 35, role: "on" },
-    { pname: "Example Mid", pos: "Mid", slot: "starter", academy: true, curTier: "diamond", curDiv: 2, curLp: 45, games: 412, peakTier: "master", peakDiv: 4, peakLp: 180, otp: 62, role: "on" },
-    { pname: "Example Bot", pos: "Bottom", slot: "starter", academy: true, curTier: "diamond", curDiv: 3, curLp: 70, games: 260, peakTier: "diamond", peakDiv: 1, peakLp: 50, otp: 30, role: "secondary" },
-    { pname: "Example Support", pos: "Support", slot: "starter", academy: false, curTier: "master", curDiv: 4, curLp: 40, games: 150, peakTier: "master", peakDiv: 4, peakLp: 120, otp: 55, role: "on" },
-    { pname: "Example Sub", pos: "Mid", slot: "sub", academy: true, curTier: "diamond", curDiv: 3, curLp: 10, games: 300, peakTier: "diamond", peakDiv: 2, peakLp: 0, otp: 70, role: "on" },
+    { pname: "Example Top", pos: "Top", slot: "starter", academy: true, curTier: "diamond", curDiv: 1, curLp: 20, games: 530, peakTier: "master", peakDiv: 4, peakLp: 210, champ: 212, role: "on" },
+    { pname: "Example Jungle", pos: "Jungle", slot: "starter", academy: true, curTier: "master", curDiv: 4, curLp: 160, games: 380, peakTier: "master", peakDiv: 4, peakLp: 340, champ: 133, role: "on" },
+    { pname: "Example Mid", pos: "Mid", slot: "starter", academy: true, curTier: "diamond", curDiv: 2, curLp: 45, games: 412, peakTier: "master", peakDiv: 4, peakLp: 180, champ: 255, role: "on" },
+    { pname: "Example Bot", pos: "Bottom", slot: "starter", academy: true, curTier: "diamond", curDiv: 3, curLp: 70, games: 260, peakTier: "diamond", peakDiv: 1, peakLp: 50, champ: 78, role: "secondary" },
+    { pname: "Example Support", pos: "Support", slot: "starter", academy: false, curTier: "master", curDiv: 4, curLp: 40, games: 150, peakTier: "master", peakDiv: 4, peakLp: 120, champ: 83, role: "on" },
+    { pname: "Example Sub", pos: "Mid", slot: "sub", academy: true, curTier: "diamond", curDiv: 3, curLp: 10, games: 300, peakTier: "diamond", peakDiv: 2, peakLp: 0, champ: 210, role: "on" },
   ];
   let teamState = store.get("wtl-team");
+  if (teamState && Array.isArray(teamState.players)) teamState.players.forEach(migrate);
   if (!teamState || !Array.isArray(teamState.players)) teamState = { example: true, players: EXAMPLE.map(x => ({ ...x })) };
   const saveTeam = () => store.set("wtl-team", teamState);
 
@@ -1006,9 +1009,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   $("addStarter").addEventListener("click", () => addPlayer("starter"));
   $("addSub").addEventListener("click", () => addPlayer("sub"));
 
-  $("otpRange").addEventListener("input", () => { $("otp").value = $("otpRange").value; renderResult(); });
-  $("otp").addEventListener("input", () => { $("otpRange").value = $("otp").value; renderResult(); });
-  $("calcForm").addEventListener("input", e => { if (e.target.id !== "otpRange" && e.target.id !== "otp") renderResult(); });
+  $("calcForm").addEventListener("input", renderResult);
   $("calcForm").addEventListener("change", renderResult);
   $("calcForm").addEventListener("submit", e => e.preventDefault());
   renderResult();
@@ -1044,7 +1045,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   async function makePng() {
     await canvasFonts();
     const { r, m, rows, L, p } = last, W = 1080, P = 56;
-    const meta = [["Division", L.name], ["Games in 2026", String(p.games)], ["Main champion", p.otp + "%"], ["Role", ROLE_LABEL[p.role]]];
+    const meta = [["Division", L.name], ["Games in 2026", String(p.games)], ["Main champion", `${p.champ} games (${pctOf(p)}%)`], ["Role", ROLE_LABEL[p.role]]];
     const all = meta.concat(rows), rowH = 42, top = 112 + 48 + (p.pname ? 50 : 0), trackH = 150;
     const H = top + 130 + trackH + all.length * rowH + 100;
     const { c, g } = newCanvas(W, H);
@@ -1100,7 +1101,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
       g.fillStyle = p.slot === "starter" ? css("--blue") : css("--grey"); g.fillRect(x, y, 6, cardH);
       g.textAlign = "left"; g.fillStyle = "#fff"; g.font = `600 28px ${DISP}`; g.fillText(`${p.pname} · ${p.pos}`.toUpperCase(), x + 28, y + 44);
       g.fillStyle = css("--grey"); g.font = `400 20px ${BODY}`;
-      g.fillText(`${p.slot === "starter" ? "Starter" : "Sub"} · ${p.games} games · ${p.otp}% main champion · ${ROLE_LABEL[p.role]}${p.academy ? " · Academy" : ""}`, x + 28, y + 78);
+      g.fillText(`${p.slot === "starter" ? "Starter" : "Sub"} · ${p.games} games · ${p.champ} on main champ (${pctOf(p)}%) · ${ROLE_LABEL[p.role]}${p.academy ? " · Academy" : ""}`, x + 28, y + 78);
       g.fillText(`Current ${lpToRank(r.x)}  ·  Peak ${lpToRank(r.y)}`, x + 28, y + 110);
       g.textAlign = "right"; g.fillStyle = "#fff"; g.font = `600 26px ${DISP}`; g.fillText(lpToRank(r.value).toUpperCase(), x + w - 24, y + 44);
       g.fillStyle = css("--magenta"); g.font = `700 30px ${DISP}`; g.fillText(r.pt.pts + (r.pt.pts === 1 ? " PT" : " PTS"), x + w - 24, y + 108);
