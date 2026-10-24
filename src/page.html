@@ -231,6 +231,26 @@ hr.split { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 1
 
 footer.foot { border-top: 1px solid var(--line); }
 footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; font-size: 14px; color: var(--muted); }
+
+/* ---------- Roster ---------- */
+.seg-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+#rosterMeta { margin-bottom: 18px; }
+.roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.rteam-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: grid; align-content: start; min-width: 0; }
+.rteam-head { display: flex; gap: 14px; align-items: center; padding: 16px 18px; background: var(--sunk); border-bottom: 1px solid var(--line); }
+.rteam-logo, .rteam-mono { width: 64px; height: 64px; flex: none; border-radius: var(--radius); }
+.rteam-logo { object-fit: contain; background: var(--bg); }
+.rteam-mono { display: grid; place-items: center; background: var(--blue); color: #fff; font: 700 24px/1 var(--font-display); letter-spacing: .04em; }
+.rteam-head h3 { font-size: 22px; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
+.rteam-pts { font-size: 14px; color: var(--muted); }
+.rteam-pts b { color: var(--magenta); font-weight: 600; }
+.rteam-list { list-style: none; margin: 0; padding: 6px 0 8px; }
+.rteam-list li { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 8px 18px; }
+.rteam-list .role { font: 600 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--magenta); }
+.rteam-list .who { overflow-wrap: anywhere; }
+.rteam-list .tag { color: var(--muted); }
+.rteam-list .pts { font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.rteam-group { font: 600 12px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 12px 18px 2px; border-top: 1px solid var(--line); }
 </style>
 
 <header class="masthead">
@@ -255,6 +275,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     <button type="button" role="tab" id="tab-rules" aria-controls="rules" aria-selected="true" data-tab="rules"><span class="k">A</span>Rulebook</button>
     <button type="button" role="tab" id="tab-slope" aria-controls="slope" aria-selected="false" tabindex="-1" data-tab="slope"><span class="k">B</span>SLOPE</button>
     <button type="button" role="tab" id="tab-calculator" aria-controls="calculator" aria-selected="false" tabindex="-1" data-tab="calculator"><span class="k">C</span>Calculator</button>
+    <button type="button" role="tab" id="tab-roster" aria-controls="roster" aria-selected="false" tabindex="-1" data-tab="roster"><span class="k">D</span>Roster</button>
   </div>
 </nav>
 
@@ -650,6 +671,20 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
         <p class="hint" id="dlTeamMsg" aria-live="polite"></p>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ===================== ROSTER ===================== -->
+<section class="band" id="roster" role="tabpanel" aria-labelledby="tab-roster" tabindex="-1" hidden>
+  <div class="wrap">
+    <div class="band-head">
+      <div class="eyebrow">Section D</div>
+      <h2>Roster</h2>
+      <p>Teams and players for each division. Rosters are read live from each division's Google Sheet, so they update as soon as the sheet does.</p>
+    </div>
+    <div class="seg-row" id="rosterTabs" aria-label="Division"></div>
+    <p class="hint" id="rosterMeta" aria-live="polite"></p>
+    <div id="rosterBox"></div>
   </div>
 </section>
 </main>
@@ -1123,13 +1158,113 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     catch { msg.textContent = "Couldn’t create the PNG here. Try again or take a screenshot."; }
   });
 
+  // ---------- Roster ----------
+  // One Google Sheet tab per division (must be shared "Anyone with the link can view").
+  // Logos: put a file at assets/logos/<team-name-slug>.png (e.g. "Wire Dolves" -> wire-dolves.png); otherwise initials are shown.
+  const ROSTER_SHEETS = {
+    na1: { id: "1VPBhyHO9gfJoDSdn0Auwagev2X0EbTnxkpbKAA_RQUY", gid: "1986969386" },
+    na2: null, na3: null, eu1: null, eu2: null,
+  };
+  const STARTERS = ["top", "jungle", "mid", "adc", "support"];
+  const ROLE_WORDS = new Set([...STARTERS, "role", "top sub", "jgl sub", "jungle sub", "mid sub", "adc sub", "sup sub", "support sub", "sub", "substitute", "substitue", "manager", "coach"]);
+  const normRole = t => t.trim().replace(/:$/, "").trim().toLowerCase();
+  const slugify = t => t.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  function parseCsv(text) {
+    const rows = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+      else if (c === '"') q = true;
+      else if (c === ",") { row.push(cell); cell = ""; }
+      else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+      else if (c !== "\r") cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+  // Each team is a block: team name, then a "Role:" header row, then one row per role (role | name | points).
+  function parseTeams(rows) {
+    const teams = [];
+    rows.forEach((r, ri) => r.forEach((cell, ci) => {
+      if (normRole(cell) !== "role") return;
+      const above = ri > 0 ? (rows[ri - 1][ci] || "").trim() : "";
+      const title = above && !ROLE_WORDS.has(normRole(above)) ? above : "";
+      const m = title.match(/^(.*?)\s*\((\d+)\)\s*$/);
+      const team = { name: m ? m[1] : title, total: m ? +m[2] : null, starters: [], subs: [], staff: [] };
+      for (let k = ri + 1; k < rows.length; k++) {
+        const label = (rows[k][ci] || "").trim(), role = normRole(label);
+        if (!label || role === "role") break;
+        const raw = (rows[k][ci + 1] || "").trim(), pts = (rows[k][ci + 2] || "").trim();
+        if (raw) {
+          const h = raw.lastIndexOf("#");
+          const p = { role: label.replace(/:$/, "").trim(), name: h > 0 ? raw.slice(0, h) : raw, tag: h > 0 ? raw.slice(h) : "", pts };
+          (STARTERS.includes(role) ? team.starters : role === "manager" || role === "coach" ? team.staff : team.subs).push(p);
+        }
+        if (role === "coach") break;
+      }
+      if (team.name || team.starters.length || team.subs.length) teams.push(team);
+    }));
+    return teams;
+  }
+  const rosterCache = {};
+  let rosterKey = store.get("wtl-roster") in ROSTER_SHEETS ? store.get("wtl-roster") : "na1";
+  function teamCard(t) {
+    const initials = (t.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+    const li = p => `<li><span class="role">${esc(p.role)}</span><span class="who">${esc(p.name)}<span class="tag">${esc(p.tag)}</span></span><span class="pts">${p.pts ? esc(p.pts) + " pts" : ""}</span></li>`;
+    const group = (label, ps) => ps.length ? `<div class="rteam-group">${label}</div><ul class="rteam-list">${ps.map(li).join("")}</ul>` : "";
+    return `<article class="rteam-card">
+      <div class="rteam-head">
+        ${t.name ? `<img class="rteam-logo" src="assets/logos/${slugify(t.name)}.png" alt="${esc(t.name)} logo" data-initials="${esc(initials)}">` : `<div class="rteam-mono" aria-hidden="true">?</div>`}
+        <div><h3>${esc(t.name || "Unnamed team")}</h3>${t.total != null ? `<div class="rteam-pts">Team TPE <b>${t.total}</b> pts</div>` : ""}</div>
+      </div>
+      <ul class="rteam-list">${t.starters.map(li).join("") || `<li><span class="role"></span><span class="who tag">No players yet</span><span></span></li>`}</ul>
+      ${group("Substitutes", t.subs)}${group("Staff", t.staff)}
+    </article>`;
+  }
+  function renderRosterTabs() {
+    $("rosterTabs").innerHTML = Object.entries(LEAGUES).map(([k, L]) =>
+      `<button type="button" class="seg" aria-pressed="${k === rosterKey}" data-k="${k}">${esc(L.name)}</button>`).join("");
+  }
+  async function loadRoster() {
+    renderRosterTabs();
+    const key = rosterKey, src = ROSTER_SHEETS[key], L = LEAGUES[key];
+    const box = $("rosterBox"), meta = $("rosterMeta");
+    if (!src) { meta.textContent = ""; box.innerHTML = `<div class="empty">${esc(L.name)} rosters will be posted here soon.</div>`; return; }
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${src.id}/edit#gid=${src.gid}`;
+    const show = teams => {
+      if (key !== rosterKey) return;
+      meta.innerHTML = `${teams.length} team${teams.length === 1 ? "" : "s"} · <a href="${sheetUrl}" target="_blank" rel="noopener">View the Google Sheet</a>`;
+      box.innerHTML = teams.length ? `<div class="roster-grid">${teams.map(teamCard).join("")}</div>` : `<div class="empty">No teams in the ${esc(L.name)} sheet yet.</div>`;
+      box.querySelectorAll("img.rteam-logo").forEach(img => img.addEventListener("error", () => {
+        const d = document.createElement("div"); d.className = "rteam-mono"; d.setAttribute("aria-hidden", "true"); d.textContent = img.dataset.initials; img.replaceWith(d);
+      }, { once: true }));
+    };
+    if (rosterCache[key]) return show(rosterCache[key]);
+    meta.textContent = "Loading rosters…"; box.innerHTML = "";
+    try {
+      const r = await fetch(`https://docs.google.com/spreadsheets/d/${src.id}/gviz/tq?tqx=out:csv&headers=0&gid=${src.gid}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      rosterCache[key] = parseTeams(parseCsv(await r.text()));
+      show(rosterCache[key]);
+    } catch {
+      if (key !== rosterKey) return;
+      meta.textContent = "";
+      box.innerHTML = `<div class="empty">Couldn’t load the ${esc(L.name)} rosters right now. <a href="${sheetUrl}" target="_blank" rel="noopener">Open the Google Sheet</a> instead.</div>`;
+    }
+  }
+  $("rosterTabs").addEventListener("click", e => {
+    const b = e.target.closest("[data-k]"); if (!b) return;
+    rosterKey = b.dataset.k; store.set("wtl-roster", rosterKey); loadRoster();
+  });
+
   // ---------- Tabs ----------
-  const TABS = ["rules", "slope", "calculator"];
-  const tabBtns = [...document.querySelectorAll('[role="tab"]')];
+  const TABS = ["rules", "slope", "calculator", "roster"];
+  const tabBtns = [...document.querySelectorAll('.tabbar [role="tab"]')];
   function showTab(id, focus) {
     TABS.forEach(t => { $(t).hidden = t !== id; });
     tabBtns.forEach(b => { const on = b.dataset.tab === id; b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
     store.set("wtl-tab", id);
+    if (id === "roster") loadRoster();
   }
   // Resolve any in-page hash (tab id or an anchor inside a tab) to its tab, then scroll to the anchor
   function route(hash, smooth) {
