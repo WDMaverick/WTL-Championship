@@ -5,7 +5,7 @@ description: Re-review the WTL Championship rulebook Google Doc (and, if provide
 
 # Update the WTL rulebook site
 
-The site is one static page: edit `src/page.html`, run `./build.sh` to regenerate `index.html`, and push to `main`. GitHub Pages serves it at https://muhwu.github.io/wtl-championship-rulebook/ (repo `Muhwu/wtl-championship-rulebook`, public).
+The site is one static page: edit `src/page.html`, run `./build.sh` to regenerate `index.html`, and push to `main`. GitHub Pages serves it at https://wdmaverick.github.io/WTL-Championship/ (repo `WDMaverick/WTL-Championship`, public).
 
 Sources:
 - Rulebook Google Doc: https://docs.google.com/document/d/1Qu6pscRUl_iEMHQSeYPh40HkourK8NhKNg7LbW2ugCQ/edit?tab=t.0 (publicly exportable)
