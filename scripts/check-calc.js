@@ -34,15 +34,17 @@ for (const [k, want] of Object.entries(REF)) {
 
 // Creator's point logic
 const CREATOR_TABLES = { 1: { bottom: -400, cap: 16 }, 2: { bottom: -800, cap: 11 }, 3: { bottom: -2000, cap: 12 } };
-const creatorPoints = (div, value) => {
-  const t = CREATOR_TABLES[div], v = Math.round(value);
+// League-specific caps where the rulebook lists more brackets than the formula's table (EU D1: Master 375-500 LP = 12)
+const LEAGUE_CAPS = { eu1: 12 };
+const creatorPoints = (div, value, leagueCap) => {
+  const t = { ...CREATOR_TABLES[div], ...(leagueCap ? { cap: leagueCap } : {}) }, v = Math.round(value);
   const p = v < 0 ? Math.floor((v - t.bottom) / 100) + 1 : (-t.bottom / 100 + 1) + Math.floor(v / 125);
   return Math.max(1, Math.min(t.cap, p));
 };
 let n = 0;
 for (const [k, L] of Object.entries(T.LEAGUES))
   for (let v = -2600; v <= 2000; v += 0.7, n++)
-    check(T.pointsFor(k, v).pts === creatorPoints(L.formula, v), `points ${k} @ ${v.toFixed(1)}`);
+    check(T.pointsFor(k, v).pts === creatorPoints(L.formula, v, LEAGUE_CAPS[k]), `points ${k} @ ${v.toFixed(1)}`);
 
 console.log(fail ? `${fail} check(s) failed` : `All checks passed (${Object.keys(REF).length * 2} formula, ${n} point samples)`);
 process.exit(fail ? 1 : 0);

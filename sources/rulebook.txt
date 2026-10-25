@@ -35,7 +35,8 @@ Please note that captains are encouraged to enforce these punishments to incenti
 [1.1.2] Players must report all accounts that are level 30 or higher.
 1.2 Player Ratings
 [1.1.2] Evaluation will be made with our SLOPE system (Standardized Level Of Play Estimation) which is an estimation calculated with many variables including Current rank, Peak rank, Role, amount of games played, champions played, etc… See this file for in depth explanations: SLOPE.pdf
-Here is a website with the integrated code so it’s easy for everyone to calculate their own rating as well as an option to get the full team rating:
+The Code of the formula is in this one if you’re interested: SLOPE_Calc.ipynb
+Finally, here is a website with all the informations of the tournament including a SLOPE calculator so it’s easy for everyone to calculate their own rating as well as an option to get the full team rating:
 **Pending
 NA - Division 1 (Diamond 4 - Masters 1500LP):
 SLOPE Evaluation
@@ -153,6 +154,8 @@ SLOPE Evaluation
 	10
 	Master 250-374LP
 	11
+	Master 375-500LP
+	12
 	
 
 EU - Division 2 (Silver 4 - Platinum 1)
@@ -256,8 +259,9 @@ SLOPE Evaluation
 [5.5.1] Every week, each team will have 1 match scheduled. 
 [5.5.2]These matches must be played within the week they are assigned (Between Monday and Sunday).
 [5.5.3]Weekly matchups are distributed prior to the championship starting.
-[5.5.4]The default time will be Friday 8 pm (EST for NA and CET for EU)
+[5.5.4]The default time will be Friday 8 pm EST for NA and Friday 7pm CET for EU
 [5.5.4.1] If both captains can find a time that works better for them, they are free to change the date and time of their game as long as it’s in the same week. If an agreement can’t be reached, the game has to be played on Friday at 8pm.
+[5.5.5] Finals have to be played at a preset time (more info coming soon)
 
 6.0 Championship Format
 6.1 Swiss Stage

@@ -262,7 +262,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     <div class="meta-row">
       <span class="chip">NA · Div 1–3</span>
       <span class="chip">EU · Div 1–2</span>
-      <span class="chip">Fridays 8pm EST / CET</span>
+      <span class="chip">Fridays 8pm EST / 7pm CET</span>
       <span class="chip">Bo3 · Finals Bo5</span>
       <span class="chip">Fearless draft</span>
       <span class="chip">Swiss stage · Semis · Finals</span>
@@ -373,7 +373,8 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
           <div class="sub" id="r1-2">
             <h4><span class="num">1.2</span>Player Ratings</h4>
             <div class="rule"><span class="rid">1.1.2</span><p>Evaluation will be made with our SLOPE system (Standardized Level Of Play Estimation) which is an estimation calculated with many variables including Current rank, Peak rank, Role, amount of games played, champions played, etc… See this file for in depth explanations: <a href="https://drive.google.com/file/d/1ss4DqESf0VN2vPcBvnPUsJRWD0nqzJhL/view" target="_blank" rel="noopener">SLOPE.pdf</a></p></div>
-            <p class="plain">Here is a website with the integrated code so it’s easy for everyone to calculate their own rating as well as an option to get the full team rating: <a href="#calculator">SLOPE Calculator</a>.</p>
+            <p class="plain">The Code of the formula is in this one if you’re interested: <a href="https://colab.research.google.com/drive/115SeCJfrsuFeppZrprDW_tJcKFyIaOHo?usp=sharing" target="_blank" rel="noopener">SLOPE_Calc.ipynb</a></p>
+            <p class="plain">Finally, here is a website with all the informations of the tournament including a SLOPE calculator so it’s easy for everyone to calculate their own rating as well as an option to get the full team rating: <a href="#calculator">SLOPE Calculator</a>.</p>
             <p class="plain">Point values by division (each tier division covers 0–99 LP; Master brackets are total LP):</p>
             <div class="div-tabs" role="tablist" aria-label="Division point table" id="ptTabs"></div>
             <div id="ptTable"></div>
@@ -492,8 +493,9 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
             <div class="rule"><span class="rid">5.5.1</span><p>Every week, each team will have 1 match scheduled.</p></div>
             <div class="rule"><span class="rid">5.5.2</span><p>These matches must be played within the week they are assigned (Between Monday and Sunday).</p></div>
             <div class="rule"><span class="rid">5.5.3</span><p>Weekly matchups are distributed prior to the championship starting.</p></div>
-            <div class="rule"><span class="rid">5.5.4</span><p>The default time will be Friday 8 pm (EST for NA and CET for EU).</p></div>
+            <div class="rule"><span class="rid">5.5.4</span><p>The default time will be Friday 8 pm EST for NA and Friday 7pm CET for EU</p></div>
             <div class="rule nested"><span class="rid">5.5.4.1</span><p>If both captains can find a time that works better for them, they are free to change the date and time of their game as long as it’s in the same week. If an agreement can’t be reached, the game has to be played on Friday at 8pm.</p></div>
+            <div class="rule"><span class="rid">5.5.5</span><p>Finals have to be played at a preset time (more info coming soon)</p></div>
           </div>
         </div>
 
@@ -757,7 +759,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     na1: { name: "NA · Division 1", range: "Diamond 4 – Master 1500 LP", formula: 1, tpe: [28, 38], table: [...tierDivs("diamond", "diamond"), ...masters(12, 1500)] },
     na2: { name: "NA · Division 2", range: "Emerald 4 – Diamond 1", formula: 2, tpe: [18, 25], table: tierDivs("emerald", "diamond") },
     na3: { name: "NA · Division 3", range: "Silver 4 – Platinum 1", formula: 3, tpe: [28, 38], table: tierDivs("silver", "platinum") },
-    eu1: { name: "EU · Division 1", range: "Emerald 4 – Master 300 LP", formula: 2, tpe: [25, 35], table: [...tierDivs("emerald", "diamond"), ...masters(3)] },
+    eu1: { name: "EU · Division 1", range: "Emerald 4 – Master 500 LP", formula: 2, cap: 12, tpe: [25, 35], table: [...tierDivs("emerald", "diamond"), ...masters(4, 500)] },
     eu2: { name: "EU · Division 2", range: "Silver 4 – Platinum 1", formula: 3, tpe: [28, 38], table: tierDivs("silver", "platinum") },
   };
   // Point values follow the SLOPE calculator by WD Maverick: keyed on the formula division,
@@ -767,7 +769,8 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   function pointsFor(leagueKey, value) {
     const L = LEAGUES[leagueKey], t = POINT_TABLES[L.formula], v = Math.round(value);
     const raw = v < 0 ? Math.floor((v - t.bottom) / 100) + 1 : (-t.bottom / 100 + 1) + Math.floor(v / 125);
-    const pts = Math.max(1, Math.min(t.cap, raw));
+    const top = L.cap || t.cap; // a league may list more brackets than its formula's table (EU D1 goes to 12)
+    const pts = Math.max(1, Math.min(top, raw));
     let label;
     if (v < 0) {
       const steps = Math.ceil(-v / 100), idx = (MASTER_IDX - 1) - Math.floor((steps - 1) / 4);
@@ -777,8 +780,8 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
       label = `Master ${s}–${s + 124} LP`;
     }
     // Outside the rulebook's listed range for this league (e.g. NA Div 2 lists up to Diamond 1 only)
-    const tbl = L.table, outOfTable = v >= tbl[tbl.length - 1].max && raw <= t.cap;
-    return { pts, below: raw < 1, above: raw > t.cap, outOfTable, label };
+    const tbl = L.table, outOfTable = v >= tbl[tbl.length - 1].max && raw <= top;
+    return { pts, below: raw < 1, above: raw > top, outOfTable, label };
   }
 
   // ---------- Storage (per-viewer convenience only) ----------
