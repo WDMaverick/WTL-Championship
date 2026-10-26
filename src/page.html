@@ -248,6 +248,9 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
 .rteam-list li { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 8px 18px; }
 .rteam-list .role { font: 600 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--magenta); }
 .rteam-list .who { overflow-wrap: anywhere; }
+.rteam-list .who a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.rteam-list .who a:hover { text-decoration-color: var(--magenta); }
+.rteam-list .who a:focus-visible { outline: 2px solid var(--magenta); outline-offset: 2px; border-radius: 2px; }
 .rteam-list .tag { color: var(--muted); }
 .rteam-list .pts { font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; }
 .rteam-group { font: 600 12px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 12px 18px 2px; border-top: 1px solid var(--line); }
@@ -1070,7 +1073,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   }
   function footer(g, W, H) {
     g.textAlign = "left"; g.fillStyle = css("--grey"); g.font = `400 18px ${BODY}`;
-    g.fillText("Generated " + new Date().toLocaleDateString() + " · wdmaverick.github.io/WTL-Championship", 56, H - 36);
+    g.fillText("Generated " + new Date().toLocaleDateString() + " · weteachleague.github.io/WTL-Championship", 56, H - 36);
   }
   async function makePng() {
     await canvasFonts();
@@ -1203,7 +1206,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
         const raw = (rows[k][ci + 1] || "").trim(), pts = (rows[k][ci + 2] || "").trim();
         if (raw) {
           const h = raw.lastIndexOf("#");
-          const p = { role: label.replace(/:$/, "").trim(), name: h > 0 ? raw.slice(0, h) : raw, tag: h > 0 ? raw.slice(h) : "", pts };
+          const p = { role: label.replace(/:$/, "").trim(), raw, name: h > 0 ? raw.slice(0, h) : raw, tag: h > 0 ? raw.slice(h) : "", pts };
           (STARTERS.includes(role) ? team.starters : role === "manager" || role === "coach" ? team.staff : team.subs).push(p);
         }
         if (role === "coach") break;
@@ -1213,10 +1216,12 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     return teams;
   }
   const rosterCache = {};
+  const OPGG_URL = /^https:\/\/(www\.)?op\.gg\//i;
   let rosterKey = store.get("wtl-roster") in ROSTER_SHEETS ? store.get("wtl-roster") : "na1";
   function teamCard(t) {
     const initials = (t.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
-    const li = p => `<li><span class="role">${esc(p.role)}</span><span class="who">${esc(p.name)}<span class="tag">${esc(p.tag)}</span></span><span class="pts">${p.pts ? esc(p.pts) + " pts" : ""}</span></li>`;
+    const who = p => `${esc(p.name)}<span class="tag">${esc(p.tag)}</span>`;
+    const li = p => `<li><span class="role">${esc(p.role)}</span><span class="who">${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.raw)} on OP.GG">${who(p)}</a>` : who(p)}</span><span class="pts">${p.pts ? esc(p.pts) + " pts" : ""}</span></li>`;
     const group = (label, ps) => ps.length ? `<div class="rteam-group">${label}</div><ul class="rteam-list">${ps.map(li).join("")}</ul>` : "";
     return `<article class="rteam-card">
       <div class="rteam-head">
@@ -1250,7 +1255,16 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     try {
       const r = await fetch(`https://docs.google.com/spreadsheets/d/${src.id}/gviz/tq?tqx=out:csv&headers=0&gid=${src.gid}`, { cache: "no-store" });
       if (!r.ok) throw new Error(r.status);
-      rosterCache[key] = parseTeams(parseCsv(await r.text()));
+      const teams = parseTeams(parseCsv(await r.text()));
+      // OP.GG links from sign-up: the hidden "Links" tab lists each roster name next to its hyperlink. Optional.
+      try {
+        const lr = await fetch(`https://docs.google.com/spreadsheets/d/${src.id}/gviz/tq?tqx=out:csv&headers=0&sheet=Links`, { cache: "no-store" });
+        if (lr.ok) {
+          const links = new Map(parseCsv(await lr.text()).filter(([n, u]) => n && OPGG_URL.test(u || "")).map(([n, u]) => [n.trim().toLowerCase(), u.trim()]));
+          teams.forEach(t => [...t.starters, ...t.subs, ...t.staff].forEach(p => { p.url = links.get(p.raw.toLowerCase()) || ""; }));
+        }
+      } catch {}
+      rosterCache[key] = teams;
       show(rosterCache[key]);
     } catch {
       if (key !== rosterKey) return;
