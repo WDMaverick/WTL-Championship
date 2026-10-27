@@ -47,7 +47,6 @@ Sources:
 - `LEAGUES` maps each league division to a SLOPE formula (1–3), its TPE limits and its rulebook point table. Current mapping: NA D1→1, NA D2→2, NA D3→3, EU D1→2, EU D2→3. Re-check it whenever division names or ranges change.
 - Known open questions (tell the user if they're still unresolved):
   - The rulebook's NA D2 table stops at Diamond 1 (8 points), but the creator's Division 2 table runs to Master 374 LP (11 points). The page follows the creator and warns.
-  - The doc's 2.3.1 labels the EU divisions "Division 2 / Division 3" and omits "points" on the last line. At the organizer's request (2026-10-27) the page shows them as EU Division 1 (25–35 points) / EU Division 2 (28–38 points); keep that correction when syncing, even if the doc still has the old wording.
 
 ## Part 4: Verify, publish, report
 
