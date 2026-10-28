@@ -252,7 +252,7 @@ SLOPE Evaluation
 * Support
 5.4 Side Selection
 [5.4.1] Side selection is chosen through a coin flip. Both captains shall go in the coin flip channel where one captain will flip a coin on this website or simply on google. The captain that won the coin flip can choose between Red or Blue side. All games after the first are the loser's choice: the team that lost the most recent game has side selection in the next game.
-[5.4.2] In semi-finals, side selection is chosen by coin flip as well (see [5.4.1]), but the team that has a 3W-0L record in the Knockout stage will have automatic side selection as well as opponent choice.
+[5.4.2] In semi-finals, side selection is chosen by coin flip as well (see [5.4.1]), but the team that has a 3W-0L record in the Swiss stage will have automatic side selection as well as opponent choice.
 [5.4.1.1] For finals, side selection is decided by a coin flip (see [5.4.1])
 [5.4.3] In the playoffs, the team with side selection of the first game must communicate their decision at least twenty four (24) hours prior to the start of the match with their roster. If this team does not decide on a side by this time, the side selection will be decided like in regular season with a coin flip.
 5.5 Schedules
