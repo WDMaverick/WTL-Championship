@@ -265,7 +265,7 @@ button.rteam-head:focus-visible { outline: 2px solid var(--magenta); outline-off
 button.rteam-head h3 { overflow-wrap: break-word; }
 .rteam-more { color: var(--accent); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; white-space: nowrap; }
 button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--magenta); }
-.tdlg { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg); overflow: auto; }
+.tdlg { width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg); overflow: auto; }
 .tdlg::backdrop { background: rgba(1, 15, 25, .78); }
 .tdlg-head { display: flex; gap: 14px; align-items: center; padding: 18px 20px; background: var(--sunk); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1; }
 .tdlg-head h3 { font-size: 26px; line-height: 1.1; margin: 4px 0 0; overflow-wrap: anywhere; }
@@ -276,9 +276,31 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
 .tdlg-table td.role { font: 600 12px/1.2 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--magenta); white-space: nowrap; }
 .tdlg-table td.who { overflow-wrap: break-word; }
 .tdlg-table .tag { color: var(--muted); }
+.tdlg-table td { vertical-align: top; }
+.tdlg-table td.sl { font-size: 13.5px; line-height: 1.35; color: var(--soft); white-space: nowrap; }
+.tdlg-table td.sl span { display: block; }
+.tdlg-table td.sl .dot { display: none; font-style: normal; }
+.tdlg-vars { margin-top: 5px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.tdlg-vars b { color: var(--soft); font-weight: 600; }
+.tdlg-date { color: var(--muted); }
 .tdlg-table a, .tdlg-body .hint a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 .tdlg-table a:hover { text-decoration-color: var(--magenta); }
-@media (max-width: 520px) { .tdlg-head h3 { font-size: 21px; } .tdlg-body { padding: 16px; } .tdlg-table .slot { display: none; } .tdlg-table th, .tdlg-table td { padding-left: 8px; padding-right: 8px; } }
+.tdlg-table .pt-unit { display: none; }
+@media (max-width: 560px) {
+  .tdlg-head h3 { font-size: 21px; }
+  .tdlg-body { padding: 16px; }
+  .tdlg-table, .tdlg-table tbody { display: block; }
+  .tdlg-table thead { display: none; }
+  .tdlg-table tr { display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "role sl pt" "who who who"; gap: 6px 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  table.data.tdlg-table td { display: block; padding: 0; border: 0; }
+  .tdlg-table td.role { grid-area: role; align-self: center; }
+  .tdlg-table td.sl { grid-area: sl; text-align: right; }
+  .tdlg-table td.sl span, .tdlg-table td.sl .dot { display: inline; }
+  .tdlg-table td.pt { grid-area: pt; font-weight: 600; white-space: nowrap; }
+  .tdlg-table .pt-unit { display: inline; color: var(--muted); font-weight: 400; }
+  .tdlg-table td.who { grid-area: who; }
+  table.data.tdlg-table td.slot { display: none; }
+}
 </style>
 
 <header class="masthead">
@@ -743,7 +765,8 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     return -400 * (MASTER_IDX - 1 - idx) - 100 * div + lp;
   }
   function lpToRank(v) {
-    if (v >= 0) return `Master+ ${Math.round(v)} LP`;
+    v = Math.round(v); // same rounding as pointsFor, so a value like -400.0000001 reads Diamond 4 · 0 LP
+    if (v >= 0) return `Master+ ${v} LP`;
     const steps = Math.ceil(-v / 100);
     const idx = (MASTER_IDX - 1) - Math.floor((steps - 1) / 4);
     const div = (steps - 1) % 4 + 1;
@@ -1291,6 +1314,18 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
           teams.forEach(t => [...t.starters, ...t.subs, ...t.staff].forEach(p => { p.url = links.get(p.raw.toLowerCase()) || ""; }));
         }
       } catch {}
+      // SLOPE variables recorded at evaluation: the hidden "Eval" tab (Name, x, y, peak, z, a, champ, b, slope, date). Optional.
+      try {
+        const er = await fetch(`https://docs.google.com/spreadsheets/d/${src.id}/gviz/tq?tqx=out:csv&headers=0&sheet=Eval`, { cache: "no-store" });
+        if (er.ok) {
+          const ev = new Map();
+          for (const [n, x, y, peak, z, a, champ, b, sl, date] of parseCsv(await er.text())) {
+            if (!n || n.trim().toLowerCase() === "name" || !Number.isFinite(+z) || +z <= 0 || !Number.isFinite(+sl)) continue;
+            ev.set(n.trim().toLowerCase(), { x: +x, y: +y, peak: String(peak).trim(), z: +z, a: +a, champ: (champ || "").trim(), b: (b || "").trim().toLowerCase(), slope: +sl, date: (date || "").trim() });
+          }
+          teams.forEach(t => [...t.starters, ...t.subs].forEach(p => { p.ev = ev.get(p.raw.toLowerCase()) || null; }));
+        }
+      } catch {}
       rosterCache[key] = teams;
       show(rosterCache[key]);
     } catch {
@@ -1310,7 +1345,18 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     const initials = (t.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
     const who = p => { const inner = `${esc(p.name)}<span class="tag">${esc(p.tag)}</span>`;
       return p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.raw)} on OP.GG">${inner}</a>` : inner; };
-    const row = (p, slot) => `<tr><td class="role">${esc(p.subFor ? `${SUB_LABEL[p.subFor]} sub` : p.role)}</td><td class="who">${who(p)}</td><td class="slot">${slot}</td><td class="n">${num(p) ?? "—"}</td></tr>`;
+    const ROLE_STATUS = { on: "On-role", secondary: "Secondary role", off: "Off-role" };
+    const vars = e => {
+      if (!e) return "";
+      const u = e.a / e.z, q = qOfA(u), few = e.z < 200, bits = [
+        `Current <b>${esc(lpToRank(e.x))}</b>`,
+        `${few ? "Peak 2025–26" : "Peak 2026"} <b>${esc(lpToRank(e.y))}</b>`,
+        `<b>${e.z.toLocaleString("en-US")}</b> games${few ? " (under 200: peak used)" : ` (peak weight ${Math.round((150 / e.z + 0.25) * 100)}%)`}`,
+        `${esc(e.champ || "Main champion")} <b>${e.a.toLocaleString("en-US")}</b> (${Math.round(u * 100)}%${q > 0 ? `, one-trick q ${q.toFixed(2)}` : ""})`,
+        `<b>${ROLE_STATUS[e.b] || esc(e.b)}</b>`];
+      return `<div class="tdlg-vars">${bits.join('<span aria-hidden="true"> · </span>')}${e.date ? `<span class="tdlg-date"> · evaluated ${esc(e.date)}</span>` : ""}</div>`;
+    };
+    const row = (p, slot) => `<tr><td class="role">${esc(p.subFor ? `${SUB_LABEL[p.subFor]} sub` : p.role)}</td><td class="who">${who(p)}${vars(p.ev)}</td><td class="slot">${slot}</td><td class="n sl">${p.ev ? `<span>${esc(lpToRank(p.ev.slope)).replace(" · ", '</span><i class="dot"> · </i><span>')}</span>` : "—"}</td><td class="n pt">${num(p) ?? "—"}<span class="pt-unit"> pts</span></td></tr>`;
     const checks = [];
     const add = (ok, text) => checks.push(`<li><span class="tag ${ok ? "ok" : "warn"}">${ok ? "OK" : "Check"}</span><span>${text}</span></li>`);
     add(starters.length === 5, `Exactly 5 starters (${starters.length} listed)`);
@@ -1337,12 +1383,12 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
           <span class="pill ${inRange && starters.length === 5 ? "ok" : "warn"}">${starters.length < 5 ? `${starters.length}/5 starters` : inRange ? "Within limit" : tpe > hi ? `${tpe - hi} over limit` : `${lo - tpe} under limit`}</span>
         </div>
         <div class="tablebox"><table class="data tdlg-table">
-          <thead><tr><th>Role</th><th>Player</th><th class="slot">Slot</th><th class="n">Pts</th></tr></thead>
+          <thead><tr><th>Role</th><th>Player</th><th class="slot">Slot</th><th class="n">SLOPE</th><th class="n">Pts</th></tr></thead>
           <tbody>${starters.map(p => row(p, "Starter")).join("")}${subs.map(p => row(p, p.subFor ? `${SUB_LABEL[p.subFor]} sub` : "Sub")).join("")}</tbody>
         </table></div>
         ${t.staff.length ? `<p class="hint">Staff: ${t.staff.map(p => `${esc(p.role)} ${who(p)}`).join(" · ")}</p>` : ""}
         <ul class="checks">${checks.join("")}</ul>
-        <p class="hint">Points are the values set by league staff at sign-up. Academy membership (2.3.3) is checked by staff.</p>
+        <p class="hint">SLOPE and points are set by league staff when the team signs up, from the player's ranked solo/duo data on OP.GG: current rank, season peak (2025–26 peak with under 200 games), games played, games on their most played champion and role status. Players can climb afterwards without changing their points (1.2.1). Academy membership (2.3.3) is checked by staff.</p>
       </div>`;
   }
   const dlg = $("teamDlg");
