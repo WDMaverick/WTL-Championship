@@ -264,6 +264,29 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
 .rteam-list .tag { color: var(--muted); }
 .rteam-list .pts { font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; }
 .rteam-group { font: 600 12px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 12px 18px 2px; border-top: 1px solid var(--line); }
+
+/* ---------- Team details dialog ---------- */
+button.rteam-head { width: 100%; font: inherit; color: inherit; text-align: left; border: 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+button.rteam-head:hover h3 { color: var(--magenta); }
+button.rteam-head:focus-visible { outline: 2px solid var(--magenta); outline-offset: -2px; }
+.rteam-title { min-width: 0; }
+button.rteam-head h3 { overflow-wrap: break-word; }
+.rteam-more { color: var(--accent); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; white-space: nowrap; }
+button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--magenta); }
+.tdlg { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg); overflow: auto; }
+.tdlg::backdrop { background: rgba(1, 15, 25, .78); }
+.tdlg-head { display: flex; gap: 14px; align-items: center; padding: 18px 20px; background: var(--sunk); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1; }
+.tdlg-head h3 { font-size: 26px; line-height: 1.1; margin: 4px 0 0; overflow-wrap: anywhere; }
+.tdlg-x { margin-left: auto; align-self: flex-start; background: none; border: 0; color: var(--muted); font-size: 28px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 3px; }
+.tdlg-x:hover { color: #fff; }
+.tdlg-x:focus-visible { outline: 2px solid var(--magenta); }
+.tdlg-body { display: grid; gap: 18px; padding: 20px; }
+.tdlg-table td.role { font: 600 12px/1.2 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--magenta); white-space: nowrap; }
+.tdlg-table td.who { overflow-wrap: break-word; }
+.tdlg-table .tag { color: var(--muted); }
+.tdlg-table a, .tdlg-body .hint a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.tdlg-table a:hover { text-decoration-color: var(--magenta); }
+@media (max-width: 520px) { .tdlg-head h3 { font-size: 21px; } .tdlg-body { padding: 16px; } .tdlg-table .slot { display: none; } .tdlg-table th, .tdlg-table td { padding-left: 8px; padding-right: 8px; } }
 </style>
 
 <header class="masthead">
@@ -700,6 +723,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     <div class="seg-row" id="rosterTabs" aria-label="Division"></div>
     <p class="hint" id="rosterMeta" aria-live="polite"></p>
     <div id="rosterBox"></div>
+    <dialog id="teamDlg" class="tdlg" aria-labelledby="tdlgTitle"></dialog>
   </div>
 </section>
 </main>
@@ -1213,10 +1237,11 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
       for (let k = ri + 1; k < rows.length; k++) {
         const label = (rows[k][ci] || "").trim(), role = normRole(label);
         if (!label || role === "role") break;
-        const raw = (rows[k][ci + 1] || "").trim(), pts = (rows[k][ci + 2] || "").trim();
+        const raw = (rows[k][ci + 1] || "").trim(), pts = (rows[k][ci + 2] || "").trim(), idx = k - ri - 1;
         if (raw) {
           const h = raw.lastIndexOf("#");
-          const p = { role: label.replace(/:$/, "").trim(), raw, name: h > 0 ? raw.slice(0, h) : raw, tag: h > 0 ? raw.slice(h) : "", pts };
+          const p = { role: label.replace(/:$/, "").trim(), raw, name: h > 0 ? raw.slice(0, h) : raw, tag: h > 0 ? raw.slice(h) : "", pts, idx,
+            subFor: !STARTERS.includes(role) && idx >= 5 && idx <= 9 ? STARTERS[idx - 5] : null };
           (STARTERS.includes(role) ? team.starters : role === "manager" || role === "coach" ? team.staff : team.subs).push(p);
         }
         if (role === "coach") break;
@@ -1228,16 +1253,16 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
   const rosterCache = {};
   const OPGG_URL = /^https:\/\/(www\.)?op\.gg\//i;
   let rosterKey = store.get("wtl-roster") in ROSTER_SHEETS ? store.get("wtl-roster") : "na1";
-  function teamCard(t) {
+  function teamCard(t, ti) {
     const initials = (t.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
     const who = p => `${esc(p.name)}<span class="tag">${esc(p.tag)}</span>`;
     const li = p => `<li><span class="role">${esc(p.role)}</span><span class="who">${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.raw)} on OP.GG">${who(p)}</a>` : who(p)}</span><span class="pts">${p.pts ? esc(p.pts) + " pts" : ""}</span></li>`;
     const group = (label, ps) => ps.length ? `<div class="rteam-group">${label}</div><ul class="rteam-list">${ps.map(li).join("")}</ul>` : "";
     return `<article class="rteam-card">
-      <div class="rteam-head">
-        ${t.name ? `<img class="rteam-logo" src="assets/logos/${slugify(t.name)}.png" alt="${esc(t.name)} logo" data-initials="${esc(initials)}">` : `<div class="rteam-mono" aria-hidden="true">?</div>`}
-        <div><h3>${esc(t.name || "Unnamed team")}</h3>${t.total != null ? `<div class="rteam-pts">Team TPE <b>${t.total}</b> pts</div>` : ""}</div>
-      </div>
+      <button type="button" class="rteam-head" data-team="${ti}" aria-haspopup="dialog" title="Open team details">
+        ${t.name ? `<img class="rteam-logo" src="assets/logos/${slugify(t.name)}.png" alt="" data-initials="${esc(initials)}">` : `<div class="rteam-mono" aria-hidden="true">?</div>`}
+        <div class="rteam-title"><h3>${esc(t.name || "Unnamed team")}</h3><div class="rteam-pts">${t.total != null ? `Team TPE <b>${t.total}</b> pts · ` : ""}<span class="rteam-more">View details</span></div></div>
+      </button>
       <ul class="rteam-list">${t.starters.map(li).join("") || `<li><span class="role"></span><span class="who tag">No players yet</span><span></span></li>`}</ul>
       ${group("Substitutes", t.subs)}${group("Staff", t.staff)}
     </article>`;
@@ -1255,7 +1280,7 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
     const show = teams => {
       if (key !== rosterKey) return;
       meta.innerHTML = `${teams.length} team${teams.length === 1 ? "" : "s"} · <a href="${sheetUrl}" target="_blank" rel="noopener">View the Google Sheet</a>`;
-      box.innerHTML = teams.length ? `<div class="roster-grid">${teams.map(teamCard).join("")}</div>` : `<div class="empty">No teams in the ${esc(L.name)} sheet yet.</div>`;
+      box.innerHTML = teams.length ? `<div class="roster-grid">${teams.map((t, i) => teamCard(t, i)).join("")}</div>` : `<div class="empty">No teams in the ${esc(L.name)} sheet yet.</div>`;
       box.querySelectorAll("img.rteam-logo").forEach(img => img.addEventListener("error", () => {
         const d = document.createElement("div"); d.className = "rteam-mono"; d.setAttribute("aria-hidden", "true"); d.textContent = img.dataset.initials; img.replaceWith(d);
       }, { once: true }));
@@ -1282,6 +1307,85 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
       box.innerHTML = `<div class="empty">Couldn’t load the ${esc(L.name)} rosters right now. <a href="${sheetUrl}" target="_blank" rel="noopener">Open the Google Sheet</a> instead.</div>`;
     }
   }
+  // ---------- Team details dialog (zooms out of the clicked card) ----------
+  const SUB_LABEL = { top: "Top", jungle: "Jungle", mid: "Mid", adc: "ADC", support: "Support" };
+  function teamDetailsHtml(t, L) {
+    const num = p => Number.isFinite(+p.pts) && p.pts !== "" ? +p.pts : null;
+    const starters = t.starters, subs = t.subs, all = [...starters, ...subs];
+    const tpe = starters.reduce((s, p) => s + (num(p) || 0), 0);
+    const [lo, hi] = L.tpe, scaleMax = Math.max(hi + 10, tpe + 2), pct = v => Math.min(100, (v / scaleMax) * 100);
+    const inRange = tpe >= lo && tpe <= hi;
+    const initials = (t.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+    const who = p => { const inner = `${esc(p.name)}<span class="tag">${esc(p.tag)}</span>`;
+      return p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.raw)} on OP.GG">${inner}</a>` : inner; };
+    const row = (p, slot) => `<tr><td class="role">${esc(p.subFor ? `${SUB_LABEL[p.subFor]} sub` : p.role)}</td><td class="who">${who(p)}</td><td class="slot">${slot}</td><td class="n">${num(p) ?? "—"}</td></tr>`;
+    const checks = [];
+    const add = (ok, text) => checks.push(`<li><span class="tag ${ok ? "ok" : "warn"}">${ok ? "OK" : "Check"}</span><span>${text}</span></li>`);
+    add(starters.length === 5, `Exactly 5 starters (${starters.length} listed)`);
+    add(inRange, `TPE ${tpe} within ${esc(L.name)} limit of ${lo}–${hi} (2.3.1)`);
+    add(all.length >= 5 && all.length <= 10, `Roster of 5–10 player slots (${all.length} used, 2.1.1)`);
+    const bad = subs.filter(s => { const st = starters[STARTERS.indexOf(s.subFor)]; return s.subFor && st && num(s) != null && num(st) != null && num(s) >= num(st); });
+    if (subs.length) add(!bad.length, bad.length ? `Sub not below their starter: ${bad.map(s => esc(s.name)).join(", ")} (2.3.2)` : "Every sub is below their starter’s points (2.3.2)");
+    return `
+      <header class="tdlg-head">
+        ${t.name ? `<img class="rteam-logo" src="assets/logos/${slugify(t.name)}.png" alt="" data-initials="${esc(initials)}">` : `<div class="rteam-mono" aria-hidden="true">?</div>`}
+        <div><div class="eyebrow">${esc(L.name)}</div><h3 id="tdlgTitle">${esc(t.name || "Unnamed team")}</h3></div>
+        <button type="button" class="tdlg-x" data-close aria-label="Close">×</button>
+      </header>
+      <div class="tdlg-body">
+        <div class="tpe">
+          <div><div class="eyebrow">TPE (5 starters)</div><div class="big">${tpe}<small> / ${lo}–${hi}</small></div></div>
+          <div class="meter">
+            <div class="meter-track" role="img" aria-label="TPE ${tpe} against limit ${lo} to ${hi}">
+              <div class="meter-band" style="left:${pct(lo)}%;width:${pct(hi) - pct(lo)}%"></div>
+              <div class="meter-mark" style="left:${pct(tpe)}%"></div>
+            </div>
+            <div class="meter-scale"><span>0</span><span>${scaleMax}</span></div>
+          </div>
+          <span class="pill ${inRange && starters.length === 5 ? "ok" : "warn"}">${starters.length < 5 ? `${starters.length}/5 starters` : inRange ? "Within limit" : tpe > hi ? `${tpe - hi} over limit` : `${lo - tpe} under limit`}</span>
+        </div>
+        <div class="tablebox"><table class="data tdlg-table">
+          <thead><tr><th>Role</th><th>Player</th><th class="slot">Slot</th><th class="n">Pts</th></tr></thead>
+          <tbody>${starters.map(p => row(p, "Starter")).join("")}${subs.map(p => row(p, p.subFor ? `${SUB_LABEL[p.subFor]} sub` : "Sub")).join("")}</tbody>
+        </table></div>
+        ${t.staff.length ? `<p class="hint">Staff: ${t.staff.map(p => `${esc(p.role)} ${who(p)}`).join(" · ")}</p>` : ""}
+        <ul class="checks">${checks.join("")}</ul>
+        <p class="hint">Points are the values set by league staff at sign-up. Academy membership (2.3.3) is checked by staff.</p>
+      </div>`;
+  }
+  const dlg = $("teamDlg");
+  let dlgFrom = null;
+  const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function openTeam(btn) {
+    const t = (rosterCache[rosterKey] || [])[+btn.dataset.team]; if (!t) return;
+    dlgFrom = btn;
+    dlg.innerHTML = teamDetailsHtml(t, LEAGUES[rosterKey]);
+    dlg.querySelectorAll("img.rteam-logo").forEach(img => img.addEventListener("error", () => {
+      const d = document.createElement("div"); d.className = "rteam-mono"; d.setAttribute("aria-hidden", "true"); d.textContent = img.dataset.initials; img.replaceWith(d);
+    }, { once: true }));
+    dlg.showModal();
+    if (reduceMotion() || !dlg.animate) return;
+    const a = btn.closest(".rteam-card").getBoundingClientRect(), b = dlg.getBoundingClientRect();
+    const dx = (a.left + a.width / 2) - (b.left + b.width / 2), dy = (a.top + a.height / 2) - (b.top + b.height / 2);
+    const s = Math.max(0.2, Math.min(a.width / b.width, a.height / b.height));
+    dlg.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${s})`, opacity: 0.4 }, { transform: "none", opacity: 1 }],
+      { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" });
+  }
+  function closeTeam() {
+    if (!dlg.open) return;
+    const done = () => { dlg.close(); if (dlgFrom) dlgFrom.focus(); };
+    const card = dlgFrom && dlgFrom.closest(".rteam-card");
+    if (reduceMotion() || !dlg.animate || !card) return done();
+    const a = card.getBoundingClientRect(), b = dlg.getBoundingClientRect();
+    const dx = (a.left + a.width / 2) - (b.left + b.width / 2), dy = (a.top + a.height / 2) - (b.top + b.height / 2);
+    const s = Math.max(0.2, Math.min(a.width / b.width, a.height / b.height));
+    dlg.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(${s})`, opacity: 0 }],
+      { duration: 180, easing: "ease-in" }).finished.then(done, done);
+  }
+  $("rosterBox").addEventListener("click", e => { const b = e.target.closest("[data-team]"); if (b) openTeam(b); });
+  dlg.addEventListener("click", e => { if (e.target === dlg || e.target.closest("[data-close]")) closeTeam(); });
+  dlg.addEventListener("cancel", e => { e.preventDefault(); closeTeam(); });
+
   $("rosterTabs").addEventListener("click", e => {
     const b = e.target.closest("[data-k]"); if (!b) return;
     rosterKey = b.dataset.k; store.set("wtl-roster", rosterKey); loadRoster();
