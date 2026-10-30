@@ -1351,6 +1351,14 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
           teams.forEach(t => [...t.starters, ...t.subs, ...t.staff].forEach(p => { p.url = links.get(p.raw.toLowerCase()) || ""; }));
         }
       } catch {}
+      // Sign-up status per team: the hidden "Status" tab (Team | Status). Optional; a status line under the team name also works.
+      try {
+        const sr = await fetch(`https://docs.google.com/spreadsheets/d/${src.id}/gviz/tq?tqx=out:csv&headers=0&sheet=Status`, { cache: "no-store" });
+        if (sr.ok) {
+          const sm = new Map(parseCsv(await sr.text()).filter(([n, st]) => n && STATUS_RE.test((st || "").trim())).map(([n, st]) => [n.trim().replace(/\s*\(\d+\)\s*$/, "").toLowerCase(), st.trim()]));
+          teams.forEach(t => { const st = sm.get((t.name || "").trim().toLowerCase()); if (st) { t.status = st; t.st = statusKind(st); } });
+        }
+      } catch {}
       // SLOPE variables recorded at evaluation: the hidden "Eval" tab (Name, x, y, peak, z, a, champ, b, slope, date). Optional.
       try {
         const er = await fetch(`https://docs.google.com/spreadsheets/d/${src.id}/gviz/tq?tqx=out:csv&headers=0&sheet=Eval`, { cache: "no-store" });
