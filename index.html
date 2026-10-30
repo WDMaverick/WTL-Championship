@@ -41,6 +41,10 @@
   --ok-soft: #0f3324;
   --warn: #ffa066;
   --warn-soft: #3d2113;
+  --bad: #ff6b7a;
+  --bad-soft: #3a1219;
+  --pend: #f2d16b;
+  --pend-soft: #362c0d;
   --font-display: "Oswald", "Arial Narrow", Impact, sans-serif;
   --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Public Sans", "Segoe UI", system-ui, sans-serif;
@@ -263,6 +267,19 @@ footer.foot .wrap { padding-block: 24px; display: flex; flex-wrap: wrap; gap: 8p
 .rteam-list .who a:focus-visible { outline: 2px solid var(--magenta); outline-offset: 2px; border-radius: 2px; }
 .rteam-list .tag { color: var(--muted); }
 .rteam-list .pts { font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.rteam-card.st-ok { border: 2px solid var(--ok); }
+.rteam-card.st-bad { border: 2px solid var(--bad); }
+.rteam-card.st-pend { border: 2px solid var(--pend); }
+.rteam-status { margin: 12px 18px 4px; padding: 10px 12px; border-radius: var(--radius); font-size: 14px; line-height: 1.4; border-left: 4px solid currentColor; overflow-wrap: anywhere; }
+.rteam-status b { display: block; font: 600 12px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 3px; }
+.rteam-status.st-ok { background: var(--ok-soft); color: var(--ok); }
+.rteam-status.st-bad { background: var(--bad-soft); color: var(--bad); }
+.rteam-status.st-pend { background: var(--pend-soft); color: var(--pend); }
+.rteam-status span { color: var(--fg); }
+.tdlg.st-ok { border: 2px solid var(--ok); }
+.tdlg.st-bad { border: 2px solid var(--bad); }
+.tdlg.st-pend { border: 2px solid var(--pend); }
+.tdlg-body > .rteam-status { margin: 0; }
 .rteam-group { font: 600 12px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 12px 18px 2px; border-top: 1px solid var(--line); }
 
 /* ---------- Team details dialog ---------- */
@@ -1248,15 +1265,25 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     if (cell || row.length) { row.push(cell); rows.push(row); }
     return rows;
   }
+  const STATUS_RE = /^(accepted|ineligible|needs review)\b/i;
+  const statusKind = t => /^accepted/i.test(t) ? "ok" : /^ineligible/i.test(t) ? "bad" : /^needs review/i.test(t) ? "pend" : "";
+  const STATUS_LABEL = { ok: "Accepted", bad: "Ineligible", pend: "Under review" };
+  const statusBox = t => t.st ? `<div class="rteam-status st-${t.st}" role="note"><b>${STATUS_LABEL[t.st]}</b><span>${esc(t.status.replace(/^(accepted|ineligible|needs review)\s*[-–:]?\s*/i, "").replace(/^\((TPE \d+)\)\s*[-–]?\s*/i, "$1 · ") || STATUS_LABEL[t.st])}</span></div>` : "";
   // Each team is a block: team name, then a "Role:" header row, then one row per role (role | name | points).
   function parseTeams(rows) {
     const teams = [];
     rows.forEach((r, ri) => r.forEach((cell, ci) => {
       if (normRole(cell) !== "role") return;
-      const above = ri > 0 ? (rows[ri - 1][ci] || "").trim() : "";
-      const title = above && !ROLE_WORDS.has(normRole(above)) ? above : "";
+      // Above the "Role:" header: optional status line (Accepted / Needs review / Ineligible), then the team name.
+      let title = "", status = "";
+      for (let k = 1; k <= 2 && ri - k >= 0; k++) {
+        const c = (rows[ri - k][ci] || "").trim();
+        if (!c || ROLE_WORDS.has(normRole(c))) break;
+        if (k === 1 && STATUS_RE.test(c)) { status = c; continue; }
+        title = c; break;
+      }
       const m = title.match(/^(.*?)\s*\((\d+)\)\s*$/);
-      const team = { name: m ? m[1] : title, total: m ? +m[2] : null, starters: [], subs: [], staff: [] };
+      const team = { name: m ? m[1] : title, total: m ? +m[2] : null, status, st: statusKind(status), starters: [], subs: [], staff: [] };
       for (let k = ri + 1; k < rows.length; k++) {
         const label = (rows[k][ci] || "").trim(), role = normRole(label);
         if (!label || role === "role") break;
@@ -1281,11 +1308,12 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     const who = p => `${esc(p.name)}<span class="tag">${esc(p.tag)}</span>`;
     const li = p => `<li><span class="role">${esc(p.role)}</span><span class="who">${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.raw)} on OP.GG">${who(p)}</a>` : who(p)}</span><span class="pts">${p.pts ? esc(p.pts) + " pts" : ""}</span></li>`;
     const group = (label, ps) => ps.length ? `<div class="rteam-group">${label}</div><ul class="rteam-list">${ps.map(li).join("")}</ul>` : "";
-    return `<article class="rteam-card">
+    return `<article class="rteam-card${t.st ? ` st-${t.st}` : ""}">
       <button type="button" class="rteam-head" data-team="${ti}" aria-haspopup="dialog" title="Open team details">
         ${t.name ? `<img class="rteam-logo" src="assets/logos/${slugify(t.name)}.png" alt="" data-initials="${esc(initials)}">` : `<div class="rteam-mono" aria-hidden="true">?</div>`}
         <div class="rteam-title"><h3>${esc(t.name || "Unnamed team")}</h3><div class="rteam-pts">${t.total != null ? `Team TPE <b>${t.total}</b> pts · ` : ""}<span class="rteam-more">View details</span></div></div>
       </button>
+      ${statusBox(t)}
       <ul class="rteam-list">${t.starters.map(li).join("") || `<li><span class="role"></span><span class="who tag">No players yet</span><span></span></li>`}</ul>
       ${group("Substitutes", t.subs)}${group("Staff", t.staff)}
     </article>`;
@@ -1302,7 +1330,8 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${src.id}/edit#gid=${src.gid}`;
     const show = teams => {
       if (key !== rosterKey) return;
-      meta.innerHTML = `${teams.length} team${teams.length === 1 ? "" : "s"} · <a href="${sheetUrl}" target="_blank" rel="noopener">View the Google Sheet</a>`;
+      const n = k => teams.filter(t => t.st === k).length, parts = [["ok", "accepted"], ["pend", "under review"], ["bad", "ineligible"]].filter(([k]) => n(k)).map(([k, w]) => `${n(k)} ${w}`);
+      meta.innerHTML = `${teams.length} team${teams.length === 1 ? "" : "s"}${parts.length ? ` (${parts.join(", ")})` : ""} · <a href="${sheetUrl}" target="_blank" rel="noopener">View the Google Sheet</a>`;
       box.innerHTML = teams.length ? `<div class="roster-grid">${teams.map((t, i) => teamCard(t, i)).join("")}</div>` : `<div class="empty">No teams in the ${esc(L.name)} sheet yet.</div>`;
       box.querySelectorAll("img.rteam-logo").forEach(img => img.addEventListener("error", () => {
         const d = document.createElement("div"); d.className = "rteam-mono"; d.setAttribute("aria-hidden", "true"); d.textContent = img.dataset.initials; img.replaceWith(d);
@@ -1379,6 +1408,7 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
         <button type="button" class="tdlg-x" data-close aria-label="Close">×</button>
       </header>
       <div class="tdlg-body">
+        ${statusBox(t)}
         <div class="tpe">
           <div><div class="eyebrow">TPE (5 starters)</div><div class="big">${tpe}<small> / ${lo}–${hi}</small></div></div>
           <div class="meter">
@@ -1406,6 +1436,7 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     const t = (rosterCache[rosterKey] || [])[+btn.dataset.team]; if (!t) return;
     dlgFrom = btn;
     dlg.innerHTML = teamDetailsHtml(t, LEAGUES[rosterKey]);
+    dlg.classList.remove("st-ok", "st-bad", "st-pend"); if (t.st) dlg.classList.add(`st-${t.st}`);
     dlg.querySelectorAll("img.rteam-logo").forEach(img => img.addEventListener("error", () => {
       const d = document.createElement("div"); d.className = "rteam-mono"; d.setAttribute("aria-hidden", "true"); d.textContent = img.dataset.initials; img.replaceWith(d);
     }, { once: true }));
