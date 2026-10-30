@@ -465,7 +465,7 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
                 <thead><tr><th>Division</th><th class="n">TPE range</th></tr></thead>
                 <tbody>
                   <tr><td>NA · Division 1</td><td class="n">28–38 points</td></tr>
-                  <tr><td>NA · Division 2</td><td class="n">18–25 points</td></tr>
+                  <tr><td>NA · Division 2</td><td class="n">15–25 points</td></tr>
                   <tr><td>NA · Division 3</td><td class="n">28–38 points</td></tr>
                   <tr><td>EU · Division 1</td><td class="n">25–35 points</td></tr>
                   <tr><td>EU · Division 2</td><td class="n">28–38 points</td></tr>
@@ -473,7 +473,7 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
               </table>
             </div>
             <div class="rule nested"><span class="rid">2.3.1.1</span><p>This is a soft cap and the league holds the right to accept or deny any team with the goal to have as many teams competing while holding our standards regarding competitive integrity.</p></div>
-            <div class="rule"><span class="rid">2.3.2</span><p>Substitutes must be below the point evaluation of their starting player.</p></div>
+            <div class="rule"><span class="rid">2.3.2</span><p>Substitutes must be at or below the point evaluation of their starting player.</p></div>
             <div class="rule"><span class="rid">2.3.3</span><p>4 out of the 5 starting players of each team must be a member of the WTL academies. The remaining one may be a non-members. This rule will keep being applied for the full duration of the event.</p></div>
           </div>
         </div>
@@ -817,7 +817,7 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
   // formula: which SLOPE formula (1-3) applies. EU mappings follow rank bands; confirm with staff.
   const LEAGUES = {
     na1: { name: "NA · Division 1", range: "Diamond 4 – Master 1500 LP", formula: 1, tpe: [28, 38], table: [...tierDivs("diamond", "diamond"), ...masters(12, 1500)] },
-    na2: { name: "NA · Division 2", range: "Emerald 4 – Diamond 1", formula: 2, tpe: [18, 25], table: tierDivs("emerald", "diamond") },
+    na2: { name: "NA · Division 2", range: "Emerald 4 – Diamond 1", formula: 2, tpe: [15, 25], table: tierDivs("emerald", "diamond") },
     na3: { name: "NA · Division 3", range: "Silver 4 – Platinum 1", formula: 3, tpe: [28, 38], table: tierDivs("silver", "platinum") },
     eu1: { name: "EU · Division 1", range: "Emerald 4 – Master 500 LP", formula: 2, cap: 12, tpe: [25, 35], table: [...tierDivs("emerald", "diamond"), ...masters(4, 500)] },
     eu2: { name: "EU · Division 2", range: "Silver 4 – Platinum 1", formula: 3, tpe: [28, 38], table: tierDivs("silver", "platinum") },
@@ -1075,11 +1075,11 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     add(!above.length, above.length ? `Above the division bracket: ${above.map(o => esc(o.p.pname)).join(", ")}` : "No player above the division bracket");
     const badSubs = subs.filter(s => {
       const st = starters.find(o => o.p.pos === s.p.pos);
-      return st && (s.r.pt.pts || 99) >= (st.r.pt.pts || 0);
+      return st && (s.r.pt.pts || 99) > (st.r.pt.pts || 0);
     });
     if (subs.length) add(!badSubs.length, badSubs.length
-      ? `Sub not below their starter’s points: ${badSubs.map(o => `${esc(o.p.pname)} (${esc(o.p.pos)})`).join(", ")} (2.3.2)`
-      : "Every sub is below their position’s starter (2.3.2)");
+      ? `Sub above their starter’s points: ${badSubs.map(o => `${esc(o.p.pname)} (${esc(o.p.pos)})`).join(", ")} (2.3.2)`
+      : "Every sub is at or below their position’s starter (2.3.2)");
     $("checks").innerHTML = checks.join("");
     lastTeam = { ps, starters, tpe, L };
   }
@@ -1370,8 +1370,8 @@ button.rteam-head:hover .rteam-more { color: #fff; text-decoration-color: var(--
     add(starters.length === 5, `Exactly 5 starters (${starters.length} listed)`);
     add(inRange, `TPE ${tpe} within ${esc(L.name)} limit of ${lo}–${hi} (2.3.1)`);
     add(all.length >= 5 && all.length <= 10, `Roster of 5–10 player slots (${all.length} used, 2.1.1)`);
-    const bad = subs.filter(s => { const st = starters[STARTERS.indexOf(s.subFor)]; return s.subFor && st && num(s) != null && num(st) != null && num(s) >= num(st); });
-    if (subs.length) add(!bad.length, bad.length ? `Sub not below their starter: ${bad.map(s => esc(s.name)).join(", ")} (2.3.2)` : "Every sub is below their starter’s points (2.3.2)");
+    const bad = subs.filter(s => { const st = starters[STARTERS.indexOf(s.subFor)]; return s.subFor && st && num(s) != null && num(st) != null && num(s) > num(st); });
+    if (subs.length) add(!bad.length, bad.length ? `Sub above their starter: ${bad.map(s => esc(s.name)).join(", ")} (2.3.2)` : "Every sub is at or below their starter’s points (2.3.2)");
     return `
       <header class="tdlg-head">
         ${t.name ? `<img class="rteam-logo" src="assets/logos/${slugify(t.name)}.png" alt="" data-initials="${esc(initials)}">` : `<div class="rteam-mono" aria-hidden="true">?</div>`}
