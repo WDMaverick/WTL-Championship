@@ -204,12 +204,12 @@ SLOPE Evaluation
 2.3 Teams’ Point Evaluation limits
 [2.3.1] TPE limits are as follows : 
         NA - Division 1: 28-38 points
-        NA - Division 2: 18-25 points
+        NA - Division 2: 15-25 points
         NA - Division 3: 28-38 points
-        EU - Division 1: 25-35 points
+        EU - Division 1: 20-35 points
         EU - Division 2: 28-38 points
 [2.3.1.1]This is a soft cap and the league holds the right to accept or deny any team with the goal to have as many teams competing while holding our standards regarding competitive integrity.
-[2.3.2] Substitutes must be below the point evaluation of their starting player.
+[2.3.2] Substitutes must be at or below the point evaluation of their starting player.
 [2.3.3] 4 out of the 5 starting players of each team must be a member of the WTL academies. The remaining one may be a non-members. This rule will keep being applied for the full duration of the event.
 3.0 Roster Changes
 3.1 Mid-Match substitutions and Roster Announcements
