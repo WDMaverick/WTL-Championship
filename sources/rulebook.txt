@@ -204,7 +204,7 @@ SLOPE Evaluation
 2.3 Teams’ Point Evaluation limits
 [2.3.1] TPE limits are as follows : 
         NA - Division 1: 28-38 points
-        NA - Division 2: 10-22 points
+        NA - Division 2: 10-26 points
         NA - Division 3: 28-38 points
         EU - Division 1: 20-35 points
         EU - Division 2: 28-38 points
